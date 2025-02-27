@@ -59,6 +59,8 @@ class StatisticsType(Enum):
     min = "min"
     max = "max"
     sse = "sse"
+    q1 = "q1"
+    q3 = "q3"
 
 
 @unique
@@ -152,6 +154,10 @@ class PE(Metric):
             return np.min(self.error)
         elif statistics_type == StatisticsType.std:
             return float(np.std(self.error))
+        elif statistics_type == StatisticsType.q1:
+            return np.quantile(self.error, 0.25)
+        elif statistics_type == StatisticsType.q3:
+            return np.quantile(self.error, 0.75)
         else:
             raise MetricsException("unsupported statistics_type")
 

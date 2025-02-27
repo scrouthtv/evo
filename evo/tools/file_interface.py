@@ -467,7 +467,13 @@ def read_csv_trajectory_file(file_path: PathStrHandle, topic_type: str) -> PoseT
             "secpos": 0, "nsecpos": 1,
             "xpos": 3, "ypos": 4, "zpos": 5,
             "qx": 6, "qy": 7, "qz": 8, "qw": 9,
-        },
+        }, {
+            "name": "xyz-csv",
+            "size": 9, "strpos": [],
+            "secpos": 0, "nsecpos": 1,
+            "xpos": 2, "ypos": 3, "zpos": 4,
+            "qx": 5, "qy": 6, "qz": 7, "qw": 8,
+        }
     ]
 
 
