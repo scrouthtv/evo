@@ -66,9 +66,6 @@ def matching_time_indices(stamps_1: np.ndarray, stamps_2: np.ndarray,
 
 def interpol_ndarray(t0: float, t1: float, xq0: np.ndarray, xq1: np.ndarray,
                    t: float) -> np.ndarray:
-    logger.info("interpol_ndarray with t0: {}, t: {}, t1: {}".format(t0, t, t1))
-    logger.info(" x0: {}, x1: {}".format(xq0, xq1))
-    logger.info(" -> {}".format(xq0 + (xq1 - xq0) * (t - t0)/(t1 - t0)))
     return xq0 + (xq1 - xq0) * (t - t0)/(t1 - t0)
 
 
