@@ -128,7 +128,7 @@ def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
         prev_exists = True
 
     if i_stamps < len(stamps):
-        for i, t in enumerate(stamps[i_stamps+1:])
+        for i, t in enumerate(stamps[i_stamps+1:]):
             logger.warn("Dropping requested timestamp {} later than reference".format(t))
             dropped_i.append(i_stamps)
 
@@ -136,7 +136,7 @@ def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
     # Remove in reverse in order to not change indices for later removal steps:
 
     dropped_i.reverse()
-    for i in dropped_i:
+    for i in enumerate dropped_i:
         del out_xyz[i]
         del out_quats[i]
         del out_stamps[i]
