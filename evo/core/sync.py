@@ -136,7 +136,7 @@ def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
     # Remove in reverse in order to not change indices for later removal steps:
 
     dropped_i.reverse()
-    for i in enumerate dropped_i:
+    for i in dropped_i:
         del out_xyz[i]
         del out_quats[i]
         del out_stamps[i]
