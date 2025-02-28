@@ -64,6 +64,86 @@ def matching_time_indices(stamps_1: np.ndarray, stamps_2: np.ndarray,
     return matching_indices_1, matching_indices_2
 
 
+def interpol_ndarray(t0: float, t1: float, xq0: np.ndarray, xq1: np.ndarray,
+                   t: float) -> np.ndarray:
+    logger.info("interpol_ndarray with t0: {}, t: {}, t1: {}".format(t0, t, t1))
+    logger.info(" x0: {}, x1: {}".format(xq0, xq1))
+    logger.info(" -> {}".format(xq0 + (xq1 - xq0) * (t - t0)/(t1 - t0)))
+    return xq0 + (xq1 - xq0) * (t - t0)/(t1 - t0)
+
+
+def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
+    """
+    Interpolate a trajectory for a given timestamp and return the interpolated
+    position and orientation.
+    :param traj: The reference trajectory to interpolate from. Must be sorted.
+    :param stamps: The timestamps. Must be sorted.
+    """
+    is_sorted = lambda a: np.all(a[:-1] <= a[1:])
+    if not is_sorted(stamps):
+        logger.error("Requested timestamps must be sorted!")
+    if not is_sorted(traj.timestamps):
+        logger.error("Reference timestamps must be sorted!")
+
+    prev_exists = False
+    t0 = 0
+    x0 = 0
+    q0 = 0
+    i_stamps = 0
+    t = stamps[i_stamps]
+
+    # Output:
+    dropped_i = []
+    out_stamps = np.empty([stamps.size, 1])
+    out_xyz = np.empty([stamps.size, 3])
+    out_quats = np.empty([stamps.size, 4])
+
+    # For each ref_pose in traj:
+    for i1, t1 in enumerate(traj.timestamps):
+        x1 = traj.positions_xyz[i1]
+        q1 = traj.orientations_quat_wxyz[i1]
+
+        # Advance i_stamps until t = stamps(i_stamps) > ref_pose.ts
+        while t < t1:
+            # For each t store interpolated pose at (t - t0)
+            out_stamps[i_stamps] = t
+            if prev_exists:
+                out_xyz[i_stamps] = interpol_ndarray(t0, t1, x0, x1, t)
+                out_quats[i_stamps] = interpol_ndarray(t0, t1, q0, q1, t)
+            else:
+                logger.warn("Dropping requested timestamp {} earlier than reference".format(t))
+                dropped_i.append(i_stamps)
+
+            # Get the next stamp:
+            i_stamps += 1
+            if i_stamps >= len(stamps):
+                logger.warn("end")
+                break
+            t = stamps[i_stamps]
+
+        # Store previous ref_pose in t0, x0, q0
+        t0 = t1
+        x0 = x1
+        q0 = q1
+        prev_exists = True
+
+    if i_stamps < len(stamps):
+        for i, t in enumerate(stamps[i_stamps+1:])
+            logger.warn("Dropping requested timestamp {} later than reference".format(t))
+            dropped_i.append(i_stamps)
+
+    # Remove all dropped stamps from the ndarray.
+    # Remove in reverse in order to not change indices for later removal steps:
+
+    dropped_i.reverse()
+    for i in dropped_i:
+        del out_xyz[i]
+        del out_quats[i]
+        del out_stamps[i]
+    
+    return PoseTrajectory3D(out_xyz, out_quats, out_stamps)
+
+
 def associate_trajectories(
         traj_1: PoseTrajectory3D, traj_2: PoseTrajectory3D,
         max_diff: float = 0.01, offset_2: float = 0.0,
@@ -83,34 +163,15 @@ def associate_trajectories(
         or not isinstance(traj_2, PoseTrajectory3D):
         raise SyncException("trajectories must be PoseTrajectory3D objects")
 
-    snd_longer = len(traj_2.timestamps) > len(traj_1.timestamps)
+    time_1 = traj_1.timestamps[-1] - traj_1.timestamps[0]
+    time_2 = traj_2.timestamps[-1] - traj_2.timestamps[0]
+    snd_longer = time_2 > time_1
     traj_long = copy.deepcopy(traj_2) if snd_longer else copy.deepcopy(traj_1)
     traj_short = copy.deepcopy(traj_1) if snd_longer else copy.deepcopy(traj_2)
-    max_pairs = len(traj_short.timestamps)
 
-    matching_indices_short, matching_indices_long = matching_time_indices(
-        traj_short.timestamps, traj_long.timestamps, max_diff,
-        offset_2 if snd_longer else -offset_2)
-    if len(matching_indices_short) != len(matching_indices_long):
-        raise SyncException(
-            "matching_time_indices returned unequal number of indices")
-    num_matches = len(matching_indices_long)
-    traj_short.reduce_to_ids(matching_indices_short)
-    traj_long.reduce_to_ids(matching_indices_long)
+    interpolated = interpol_at(traj_long, traj_short.timestamps)
 
-    traj_1 = traj_short if snd_longer else traj_long
-    traj_2 = traj_long if snd_longer else traj_short
-
-    if num_matches == 0:
-        raise SyncException(
-            "found no matching timestamps between {} and {} with max. time "
-            "diff {} (s) and time offset {} (s)".format(
-                first_name, snd_name, max_diff, offset_2))
-
-    logger.debug(
-        "Found {} of max. {} possible matching timestamps between...\n"
-        "\t{}\nand:\t{}\n..with max. time diff.: {} (s) "
-        "and time offset: {} (s).".format(num_matches, max_pairs, first_name,
-                                          snd_name, max_diff, offset_2))
+    traj_1 = traj_short if snd_longer else interpolated
+    traj_2 = interpolated if snd_longer else traj_short
 
     return traj_1, traj_2
