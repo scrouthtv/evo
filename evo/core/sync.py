@@ -134,9 +134,9 @@ def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
 
     dropped_i.reverse()
     for i in dropped_i:
-        del out_xyz[i]
-        del out_quats[i]
-        del out_stamps[i]
+        np.delete(out_xyz, i, axis=0)
+        np.delete(out_quats, i, axis=0)
+        np.delete(out_stamps, i, axis=0)
     
     return PoseTrajectory3D(out_xyz, out_quats, out_stamps)
 
