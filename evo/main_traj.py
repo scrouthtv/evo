@@ -203,6 +203,24 @@ def run(args):
 
     trajectories, ref_traj = load_trajectories(args)
 
+    if args.t1:
+        logger.debug(SEP)
+        for traj in trajectories.values():
+            traj.trim_before(args.t1)
+            logger.debug("Remaining timestamps after trimming left of t1:")
+            logger.debug(traj.timestamps)
+        if ref_traj:
+            ref_traj.trim_before(args.t1)
+
+    if args.t2:
+        logger.debug(SEP)
+        for traj in trajectories.values():
+            traj.trim_after(args.t2)
+            logger.debug("Remaining timestamps after trimming right of t2:")
+            logger.debug(traj.timestamps)
+        if ref_traj:
+            ref_traj.trim_after(args.t2)
+
     if args.downsample:
         logger.debug(SEP)
         logger.info("Downsampling trajectories to max %s poses.",

@@ -299,6 +299,35 @@ class PosePath3D(object):
         if hasattr(self, "_poses_se3"):
             self._poses_se3 = [self._poses_se3[idx] for idx in ids]
 
+    def trim_before(self, t1: float) -> None:
+        """
+        Trim the trajectory by removing all poses before the specified
+        timestamp.
+        :param t1: the earliest timestamp to keep
+        """
+        # Find the first index where t >= t1
+        i = np.searchsorted(self.timestamps, t1)
+        logger.debug("First matching index: %d", i)
+        self.timestamps = self.timestamps[i:]
+        if hasattr(self, "_positions_xyz"):
+            self._positions_xyz = self._positions_xyz[i:]
+        if hasattr(self, "_orientations_quat_wxyz"):
+            self._orientations_quat_wxyz = self._orientations_quat_wxyz[i:]
+
+    def trim_after(self, t2: float) -> None:
+        """
+        Trim the trajectory by removing all poses after the specified
+        timestamp.
+        :param t2: the latest timestamp to keep
+        """
+        i = np.searchsorted(self.timestamps, t2, side='right')
+        logger.debug("Last matching index: %d", i)
+        self.timestamps = self.timestamps[:i]
+        if hasattr(self, "_positions_xyz"):
+            self._positions_xyz = self._positions_xyz[:i]
+        if hasattr(self, "_orientations_quat_wxyz"):
+            self._orientations_quat_wxyz = self._orientations_quat_wxyz[:i]
+
     def downsample(self, num_poses: int) -> None:
         """
         Downsample the trajectory to the specified number of poses

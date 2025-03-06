@@ -41,6 +41,12 @@ def parser() -> argparse.ArgumentParser:
         help="Filters out poses if the distance or angle to the previous one "
         " is below the threshold distance or angle. "
         "Angle is expected in degrees.")
+    algo_opts.add_argument(
+        "--t1", type=float,
+        help="Discard all poses with t < t1")
+    algo_opts.add_argument(
+        "--t2", type=float,
+        help="Discard all poses with t > t2")
 
     align_opts = algo_opts.add_mutually_exclusive_group()
     align_opts.add_argument("-a", "--align",

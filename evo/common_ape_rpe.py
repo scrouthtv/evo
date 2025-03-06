@@ -122,6 +122,22 @@ def downsample_or_filter(args: argparse.Namespace, traj_ref: PosePath3D,
     logger.debug(SEP)
     old_num_poses_ref = traj_ref.num_poses
     old_num_poses_est = traj_est.num_poses
+
+    # Trim before downsampling:
+    if args.t1:
+        logger.debug(SEP)
+        traj_ref.trim_before(args.t1)
+        traj_est.trim_before(args.t1)
+    if args.t2:
+        logger.debug(SEP)
+        traj_ref.trim_before(args.t1)
+        traj_est.trim_before(args.t1)
+    if args.t1 or args.t2:
+        logger.debug("Number of poses in reference was trimmed from %d to %d.",
+                     old_num_poses_ref, traj_ref.num_poses)
+        logger.debug("Number of poses in estimate was trimmed from %d to %d.",
+                     old_num_poses_est, traj_est.num_poses)
+
     if args.downsample:
         logger.debug("Downsampling trajectories to max %d poses.",
                      args.downsample)

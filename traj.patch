@@ -1,0 +1,147 @@
+diff --git a/evo/common_ape_rpe.py b/evo/common_ape_rpe.py
+index 3f1b446..8fb76a5 100644
+--- a/evo/common_ape_rpe.py
++++ b/evo/common_ape_rpe.py
+@@ -122,6 +122,22 @@ def downsample_or_filter(args: argparse.Namespace, traj_ref: PosePath3D,
+     logger.debug(SEP)
+     old_num_poses_ref = traj_ref.num_poses
+     old_num_poses_est = traj_est.num_poses
++
++    # Trim before downsampling:
++    if args.t1:
++        logger.debug(SEP)
++        traj_ref.trim_before(args.t1)
++        traj_est.trim_before(args.t1)
++    if args.t2:
++        logger.debug(SEP)
++        traj_ref.trim_before(args.t1)
++        traj_est.trim_before(args.t1)
++    if args.t1 or args.t2:
++        logger.debug("Number of poses in reference was trimmed from %d to %d.",
++                     old_num_poses_ref, traj_ref.num_poses)
++        logger.debug("Number of poses in estimate was trimmed from %d to %d.",
++                     old_num_poses_est, traj_est.num_poses)
++
+     if args.downsample:
+         logger.debug("Downsampling trajectories to max %d poses.",
+                      args.downsample)
+diff --git a/evo/core/trajectory.py b/evo/core/trajectory.py
+index afa3cb2..3be69ab 100644
+--- a/evo/core/trajectory.py
++++ b/evo/core/trajectory.py
+@@ -299,6 +299,35 @@ class PosePath3D(object):
+         if hasattr(self, "_poses_se3"):
+             self._poses_se3 = [self._poses_se3[idx] for idx in ids]
+ 
++    def trim_before(self, t1: float) -> None:
++        """
++        Trim the trajectory by removing all poses before the specified
++        timestamp.
++        :param t1: the earliest timestamp to keep
++        """
++        # Find the first index where t >= t1
++        i = np.searchsorted(self.timestamps, t1)
++        logger.debug("First matching index: %d", i)
++        self.timestamps = self.timestamps[i:]
++        if hasattr(self, "_positions_xyz"):
++            self._positions_xyz = self._positions_xyz[i:]
++        if hasattr(self, "_orientations_quat_wxyz"):
++            self._orientations_quat_wxyz = self._orientations_quat_wxyz[i:]
++
++    def trim_after(self, t2: float) -> None:
++        """
++        Trim the trajectory by removing all poses after the specified
++        timestamp.
++        :param t2: the latest timestamp to keep
++        """
++        i = np.searchsorted(self.timestamps, t2, side='right')
++        logger.debug("Last matching index: %d", i)
++        self.timestamps = self.timestamps[:i]
++        if hasattr(self, "_positions_xyz"):
++            self._positions_xyz = self._positions_xyz[:i]
++        if hasattr(self, "_orientations_quat_wxyz"):
++            self._orientations_quat_wxyz = self._orientations_quat_wxyz[:i]
++
+     def downsample(self, num_poses: int) -> None:
+         """
+         Downsample the trajectory to the specified number of poses
+diff --git a/evo/main_ape_parser.py b/evo/main_ape_parser.py
+index 2b77168..622ba40 100644
+--- a/evo/main_ape_parser.py
++++ b/evo/main_ape_parser.py
+@@ -41,6 +41,12 @@ def parser() -> argparse.ArgumentParser:
+         help="Filters out poses if the distance or angle to the previous one "
+         " is below the threshold distance or angle. "
+         "Angle is expected in degrees.")
++    algo_opts.add_argument(
++        "--t1", type=float,
++        help="Discard all poses with t < t1")
++    algo_opts.add_argument(
++        "--t2", type=float,
++        help="Discard all poses with t > t2")
+ 
+     align_opts = algo_opts.add_mutually_exclusive_group()
+     align_opts.add_argument("-a", "--align",
+diff --git a/evo/main_rpe_parser.py b/evo/main_rpe_parser.py
+index 11d8d01..1ff5068 100644
+--- a/evo/main_rpe_parser.py
++++ b/evo/main_rpe_parser.py
+@@ -56,6 +56,12 @@ def parser() -> argparse.ArgumentParser:
+         help="Filters out poses if the distance or angle to the previous one "
+         " is below the threshold distance or angle. "
+         "Angle is expected in degrees.")
++    algo_opts.add_argument(
++        "--t1", type=float,
++        help="Discard all poses with t < t1")
++    algo_opts.add_argument(
++        "--t2", type=float,
++        help="Discard all poses with t > t2")
+ 
+     align_opts = algo_opts.add_mutually_exclusive_group()
+     align_opts.add_argument("-a", "--align",
+diff --git a/evo/main_traj.py b/evo/main_traj.py
+index d4e0044..f1a0abf 100755
+--- a/evo/main_traj.py
++++ b/evo/main_traj.py
+@@ -203,6 +203,24 @@ def run(args):
+ 
+     trajectories, ref_traj = load_trajectories(args)
+ 
++    if args.t1:
++        logger.debug(SEP)
++        for traj in trajectories.values():
++            traj.trim_before(args.t1)
++            logger.debug("Remaining timestamps after trimming left of t1:")
++            logger.debug(traj.timestamps)
++        if ref_traj:
++            ref_traj.trim_before(args.t1)
++
++    if args.t2:
++        logger.debug(SEP)
++        for traj in trajectories.values():
++            traj.trim_after(args.t2)
++            logger.debug("Remaining timestamps after trimming right of t2:")
++            logger.debug(traj.timestamps)
++        if ref_traj:
++            ref_traj.trim_after(args.t2)
++
+     if args.downsample:
+         logger.debug(SEP)
+         logger.info("Downsampling trajectories to max %s poses.",
+diff --git a/evo/main_traj_parser.py b/evo/main_traj_parser.py
+index b12ee26..c67b73b 100644
+--- a/evo/main_traj_parser.py
++++ b/evo/main_traj_parser.py
+@@ -61,6 +61,12 @@ def parser() -> argparse.ArgumentParser:
+         help="Filters out poses if the distance or angle to the previous one "
+         " is below the threshold distance or angle. "
+         "Angle is expected in degrees.")
++    algo_opts.add_argument(
++        "--t1", type=float,
++        help="Discard all poses with t < t1")
++    algo_opts.add_argument(
++        "--t2", type=float,
++        help="Discard all poses with t > t2")
+ 
+     align_opts = algo_opts.add_mutually_exclusive_group()
+     align_opts.add_argument("-a", "--align",
