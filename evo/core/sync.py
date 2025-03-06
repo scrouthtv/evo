@@ -69,7 +69,7 @@ def interpol_ndarray(t0: float, t1: float, xq0: np.ndarray, xq1: np.ndarray,
     return xq0 + (xq1 - xq0) * (t - t0)/(t1 - t0)
 
 
-def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
+def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> (PoseTrajectory3D, list):
     """
     Interpolate a trajectory for a given timestamp and return the interpolated
     position and orientation.
@@ -113,10 +113,12 @@ def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
 
             # Get the next stamp:
             i_stamps += 1
-            if i_stamps >= len(stamps):
-                logger.warn("end")
+            if i_stamps == stamps.size:
                 break
             t = stamps[i_stamps]
+
+        if i_stamps == stamps.size:
+            break
 
         # Store previous ref_pose in t0, x0, q0
         t0 = t1
@@ -131,14 +133,14 @@ def interpol_at(traj: PoseTrajectory3D, stamps: np.ndarray) -> PoseTrajectory3D:
 
     # Remove all dropped stamps from the ndarray.
     # Remove in reverse in order to not change indices for later removal steps:
-
     dropped_i.reverse()
     for i in dropped_i:
+        logger.warn("Removing timestamp #%d", i)
         np.delete(out_xyz, i, axis=0)
         np.delete(out_quats, i, axis=0)
         np.delete(out_stamps, i, axis=0)
-    
-    return PoseTrajectory3D(out_xyz, out_quats, out_stamps)
+
+    return PoseTrajectory3D(out_xyz, out_quats, out_stamps), dropped_i
 
 
 def associate_trajectories(
@@ -166,7 +168,12 @@ def associate_trajectories(
     traj_long = copy.deepcopy(traj_2) if snd_longer else copy.deepcopy(traj_1)
     traj_short = copy.deepcopy(traj_1) if snd_longer else copy.deepcopy(traj_2)
 
-    interpolated = interpol_at(traj_long, traj_short.timestamps)
+    interpolated, dropped_i = interpol_at(traj_long, traj_short.timestamps)
+
+    for i in dropped_i:
+        np.delete(traj_short.timestamps, i, axis=0)
+        np.delete(traj_short.positions_xyz, i, axis=0)
+        np.delete(traj_short.orientations_quat_wxyz, i, axis=0)
 
     traj_1 = traj_short if snd_longer else interpolated
     traj_2 = interpolated if snd_longer else traj_short
